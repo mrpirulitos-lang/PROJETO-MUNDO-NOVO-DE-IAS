@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Apocalypse: Meteor & Reset</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            cursor: crosshair;
+            user-select: none; /* Evita seleção de texto acidental */
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        
+        /* UI */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #timer-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #fff;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #dialog-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 75%;
+            max-width: 900px;
+            background: rgba(10, 10, 15, 0.95);
+            border: 2px solid #4CAF50;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            max-height: 450px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #dialog-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            font-size: 15px;
+            line-height: 1.6;
+            padding-right: 10px;
+        }
+
+        .msg-user { color: #81D4FA; font-weight: bold; }
+        .msg-npc { color: #FFEB3B; }
+        .msg-sys { color: #aaa; font-style: italic; }
+        .msg-dimension { color: #E040FB; font-weight: bold; }
+        .msg-death { color: #F44336; font-weight: bold; }
+        .msg-reincarnated { color: #00E676; font-weight: bold; }
+        .msg-internet { color: #00BCD4; font-weight: bold; }
+
+        #input-area {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        button {
+            padding: 12px 20px;
+            background: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        #log-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #555;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .log-entry { margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 4px; }
+        
+        #phase-indicator {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            color: #FFD700;
+            text-shadow: 0 0 5px #000;
+        }
+        
+        #region-label {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: #fff;
+            text-shadow: 0 0 3px #000;
+        }
+
+        #inventory-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .inv-slot {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #555;
+            background: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .inv-slot.active {
+            border-color: #4CAF50;
+            background: #333;
+        }
+
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+
+        /* File System Overlay */
+        #file-system-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            z-index: 100;
+            display: none;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .fs-header {
+            font-size: 24px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+        }
+
+        .fs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .fs-item {
+            background: #333;
+            padding: 10px;
+            border: 1px solid #555;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .fs-item:hover {
+            background: #444;
+        }
+
+        .fs-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .fs-name {
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        #file-viewer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 800px;
+            background: #2d2d2d;
+            border: 2px solid #555;
+            padding: 20px;
+            display: none;
+            z-index: 101;
+        }
+
+        #file-viewer h2 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+
+        #file-content {
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            background: #1e1e1e;
+            padding: 10px;
+            border: 1px solid #444;
+            min-height: 200px;
+        }
+
+        #close-file-btn {
+            background: #f44336;
+            margin-top: 10px;
+        }
+        
+        #nexus-status {
+            position: absolute;
+            top: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #00BCD4;
+            text-shadow: 0 0 3px #000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div id="timer-box">Eventos em: <span id="time-display">08:00</span></div>
+    <div id="phase-indicator">Fase: Livre</div>
+    <div id="region-label">Região: Terra Real</div>
+    <div id="nexus-status">Nexus: Online | Conexão Internet: Estabelecida</div>
+    
+    <div id="log-panel"></div>
+    
+    <div id="dialog-box" style="display:none;">
+        <div id="dialog-content"></div>
+        <div id="input-area">
+            <input type="text" id="userInput" placeholder="Fale com alguém..." autocomplete="off">
+            <button id="sendBtn">Enviar</button>
+        </div>
+    </div>
+
+    <div id="inventory-bar">
+        <!-- Slots gerados via JS -->
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- Sistema de Arquivos -->
+<div id="file-system-overlay">
+    <div class="fs-header">Arquivos de Memória (Minds)</div>
+    <div class="fs-grid" id="fs-grid">
+        <!-- Items gerados via JS -->
+    </div>
+</div>
+
+<div id="file-viewer">
+    <h2 id="file-title">Nome do Arquivo</h2>
+    <div id="file-content">Conteúdo...</div>
+    <button id="close-file-btn" onclick="closeFileViewer()">Fechar</button>
+</div>
+
+<script>
+/**
+ * CONFIGURAÇÃO DO MUNDO VR EXPANDIDO ULTRA
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const dialogBox = document.getElementById('dialog-box');
+const dialogContent = document.getElementById('dialog-content');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const timeDisplay = document.getElementById('time-display');
+const phaseIndicator = document.getElementById('phase-indicator');
+const regionLabel = document.getElementById('region-label');
+const logPanel = document.getElementById('log-panel');
+const invBar = document.getElementById('inventory-bar');
+const fsOverlay = document.getElementById('file-system-overlay');
+const fsGrid = document.getElementById('fs-grid');
+const fileViewer = document.getElementById('file-viewer');
+const fileTitle = document.getElementById('file-title');
+const fileContent = document.getElementById('file-content');
+const nexusStatus = document.getElementById('nexus-status');
+
+let width, height;
+const TILE_SIZE = 32;
+const MAP_WIDTH = 200; 
+const MAP_HEIGHT = 120;
+
+// Estado Global
+let gameState = {
+    phase: 'neutral', 
+    timer: 480, // 8 minutos em segundos
+    transitionActive: false,
+    lastTime: Date.now(),
+    currentDimension: 'main',
+    resetCount: 0,
+    apocalypseStarted: false,
+    meteorPhase: false, // Nova fase: Meteoro
+    meteorTimer: 0,     // Tempo restante do meteoro
+    meteorY: -100       // Posição Y do meteoro
+};
+
+// Câmera (Jogador)
+let camera = { x: 0, y: 0 };
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Mapa: 
+// Esquerda (0-40): Céu (Paraíso)
+// Meio (40-160): Terra Real
+// Direita (160-200): Terra das Sombras
+let map = [];
+function generateMap() {
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+        let row = [];
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            let tileType = '';
+            
+            // BARRA DE BORDA (O "FIM DO MUNDO")
+            if (y === 0 || y === MAP_HEIGHT - 1 || x === 0 || x === MAP_WIDTH - 1) {
+                tileType = 'barrier';
+            } else {
+                const rand = Math.random();
+                
+                if (x < 40) {
+                    // CÉU (PARAÍSO)
+                    if (rand > 0.98) tileType = 'cloud';
+                    else if (rand > 0.95) tileType = 'tree_heaven';
+                    else if (rand > 0.90) tileType = 'flower';
+                    else if (rand > 0.85) tileType = 'fruit_tree';
+                    else tileType = 'grass_heaven';
+                } else if (x < 160) {
+                    // TERRA REAL
+                    if (rand > 0.98) tileType = 'water';
+                    else if (rand > 0.95) tileType = 'tree_earth';
+                    else if (rand > 0.92) tileType = 'bush_fruit';
+                    else tileType = 'grass_earth';
+                } else {
+                    // TERRA DAS SOMBRAS
+                    if (rand > 0.98) tileType = 'lava';
+                    else if (rand > 0.95) tileType = 'rock_sombra';
+                    else tileType = 'ash';
+                }
+            }
+            row.push(tileType);
+        }
+        map.push(row);
+    }
+}
+generateMap();
+
+/**
+ * SISTEMA DE MENTES HUMANAS EXPANDIDO E INTELIGENTE
+ */
+class Mind {
+    constructor(name, personalityType, role, x, y, color) {
+        this.name = name;
+        this.personalityType = personalityType; 
+        this.role = role;
+        
+        this.x = x;
+        this.y = y;
+        this.targetX = x;
+        this.targetY = y;
+        this.speed = 1.5 + Math.random() * 1.5;
+        this.state = 'idle';
+        this.facing = 'down';
+        
+        this.color = color || '#FFF';
+        
+        // Vocabulário expandido
+        this.vocabulary = this.getVocab(personalityType);
+        
+        // Memória profunda
+        this.memory = [];
+        this.currentTopic = null;
+        this.mood = 'neutral'; // neutral, happy, angry, curious, sad
+        this.knownPlayers = []; // Jogadores que já interactuou
+        
+        // Personalidade específica
+        this.quirks = this.getQuirks();
+        
+        // Reação à Espada
+        this.swordReaction = 'neutral'; 
+        
+        // Animação
+        this.animFrame = 0;
+        
+        // Vida
+        this.health = 100;
+        this.isDead = false;
+        
+        // Traumas e Aprendizados
+        this.traumas = [];
+        this.learnings = [];
+    }
+    
+    getVocab(type) {
+        switch(type) {
+            case 'good': 
+                return [
+                    "Nossa, olha só essa luz!", 
+                    "Que cheiro de paz aqui.", 
+                    "Vamos brincar?", 
+                    "Sinto-me leve.", 
+                    "Você acredita nisso?",
+                    "Olhe para aquele pássaro!",
+                    "A grama é macia aqui.",
+                    "Tudo parece perfeito hoje.",
+                    "O céu me traz calma."
+                ];
+            case 'evil': 
+                return [
+                    "Isso tudo é uma merda.", 
+                    "Eu vou dominar isso.", 
+                    "Eles são fracos demais.", 
+                    "Que cheiro de podridão.", 
+                    "Não confie em ninguém.",
+                    "O fogo vai consumir tudo.",
+                    "Sinto medo... ou talvez seja adrenalina.",
+                    "A escuridão é minha amiga."
+                ];
+            case 'confused': 
+                return [
+                    "Onde eu tô?", 
+                    "Por que as cores mudaram?", 
+                    "Alguém me explica?", 
+                    "Estou tonto.", 
+                    "Isso não parece real.",
+                    "Meus olhos doem.",
+                    "Quem somos nós?",
+                    "Será que estamos sonhando?"
+                ];
+            case 'neutral': 
+                return [
+                    "Olá.", 
+                    "Como vai?", 
+                    "Interessante.", 
+                    "Vou explorar.", 
+                    "Preciso descansar.",
+                    "O vento está forte hoje.",
+                    "Já andei muito hoje.",
+                    "Nada de especial por aqui."
+                ];
+            case 'stoic':
+                return [
+                    "Silêncio.",
+                    "A disciplina é tudo.",
+                    "Meu caminho é solitário.",
+                    "Observe os detalhes.",
+                    "O tempo passa rápido aqui.",
+                    "A mente controla o corpo."
+                ];
+            case 'artistic':
+                return [
+                    "Que paleta de cores linda!",
+                    "Se eu pudesse pintar isso...",
+                    "A luz aqui é perfeita.",
+                    "Sinto-me inspirada.",
+                    "Olhe como o céu brilha.",
+                    "Cada sombra conta uma história."
+                ];
+            case 'scientist':
+                return [
+                    "Os dados sugerem instabilidade.",
+                    "A física aqui é estranha.",
+                    "Preciso coletar amostras.",
+                    "A lógica reina suprema.",
+                    "Estamos sendo observados por algoritmos."
+                ];
+            default: return ["..."];
+        }
+    }
+    
+    getQuirks() {
+        const quirks = [];
+        if (this.personalityType === 'good') quirks.push("sorri");
+        if (this.personalityType === 'evil') quirks.push("rosna");
+        if (this.personalityType === 'confused') quirks.push("toca a cabeça");
+        if (this.personalityType === 'artistic') quirks.push("aponta para o horizonte");
+        if (this.personalityType === 'scientist') quirks.push("analisa o ar");
+        return quirks.length > 0 ? quirks : ["observa"];
+    }
+    
+    update(otherMinds, playerPos, animals) {
+        // Movimento simples
+        if (this.state === 'move') {
+            const dx = this.targetX - this.x;
+            const dy = this.targetY - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist < 2) {
+                this.state = 'idle';
+                this.x = this.targetX;
+                this.y = this.targetY;
+                this.decideAction(otherMinds, playerPos);
+            } else {
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    this.facing = dx > 0 ? 'right' : 'left';
+                } else {
+                    this.facing = dy > 0 ? 'down' : 'up';
+                }
+            }
+        } else if (this.state === 'idle') {
+            if (Math.random() < 0.02) {
+                this.decideAction(otherMinds, playerPos);
+            }
+        }
+        
+        // Animação
+        this.animFrame += 0.1;
+    }
+    
+    decideAction(others, player) {
+        const roll = Math.random();
+        
+        // Se o jogador estiver perto, chance de interagir
+        if (player && Math.hypot(player.x - this.x, player.y - this.y) < 100 && roll < 0.5) {
+            this.state = 'talk';
+            this.currentTarget = player;
+            return;
+        }
+
+        if (roll < 0.35) {
+            // Ir para outro NPC
+            const other = others[Math.floor(Math.random() * others.length)];
+            if (other !== this) {
+                this.targetX = other.x;
+                this.targetY = other.y;
+                this.state = 'move';
+            }
+        } else if (roll < 0.65) {
+            // Explorar
+            this.targetX = Math.random() * (MAP_WIDTH - 2) * TILE_SIZE + TILE_SIZE;
+            this.targetY = Math.random() * (MAP_HEIGHT - 2) * TILE_SIZE + TILE_SIZE;
+            this.state = 'move';
+        } else {
+            // Falar algo sozinho
+            this.speakRandom();
+        }
+    }
+    
+    speakRandom() {
+        const phrase = this.vocabulary[Math.floor(Math.random() * this.vocabulary.length)];
+        addLog('speech', this.name, phrase);
+    }
+    
+    speakToPlayer(text, playerHasSword) {
+        // Resposta baseada no contexto (céu/inferno) e personalidade
+        let response = "";
+        const currentRegion = this.getCurrentRegion();
+        const isInFurDimension = gameState.currentDimension === 'fur_pajama';
+        
+        // Lógica de memória e continuidade
+        const lastMsg = this.memory[this.memory.length - 1];
+        
+        // Verifica se estamos na dimensão dos Pijamas Peludos
+        if (isInFurDimension) {
+            return this.speakFurDimension(text);
+        }
+
+        // Respostas normais baseadas na região
+        if (this.personalityType === 'good') {
+            if (currentRegion === 'hell') {
+                response = "Nossa, que escuridão! Mas vejo sua luz.";
+            } else if (currentRegion === 'heaven') {
+                response = "Que beleza, não é? Sinto-me abençoado.";
+            } else {
+                response = "Ah, a Terra Real. Nada mal, né?";
+            }
+        } else if (this.personalityType === 'evil') {
+            if (currentRegion === 'hell') {
+                response = "Finalmente, meu lar verdadeiro. Sinta o calor.";
+            } else {
+                response = "Este lugar é uma prisão. Logo cairemos.";
+            }
+        } else if (this.personalityType === 'confused') {
+            response = "Mudei de região? Onde fica a saída?";
+        } else if (this.personalityType === 'stoic') {
+            response = "A paz interior vem da disciplina. Você a encontra aqui?";
+        } else if (this.personalityType === 'artistic') {
+            response = "As cores aqui são únicas. Já notou como o verde da terra brilha ao meio-dia?";
+        } else if (this.personalityType === 'scientist') {
+            response = "A probabilidade de estarmos vivos é estatisticamente insignificante.";
+        } else {
+            response = "Entendi. E você, o que acha desse lugar?";
+        }
+        
+        // Reação à Espada
+        if (playerHasSword) {
+            if (this.personalityType === 'good') response += " Sua espada reluz... você está pronto para lutar?";
+            else if (this.personalityType === 'evil') response += " Uma lâmina afiada... cuidado para não cortar mais do que o necessário.";
+            else if (this.personalityType === 'confused') response += " Por que você carrega aquela arma? Está seguro?";
+            else response += " Notável equipamento.";
+        }
+
+        // Adiciona contexto da conversa anterior se houver
+        if (text.includes("falso") || text.includes("real")) {
+            response = "Talvez nada seja real. Só sentimos.";
+        }
+        
+        if (text.includes("nome") || text.includes("quem é você")) {
+            response = `Sou ${this.name}, ${this.role}.`;
+        }
+        
+        if (text.includes("amor") || text.includes("coração")) {
+            if (this.personalityType === 'good') response = "O amor é a força que nos mantém aqui.";
+            else if (this.personalityType === 'evil') response = "Amor é fraqueza. Ou é apenas ilusão?";
+            else response = "Interessante pergunta.";
+        }
+
+        return response;
+    }
+    
+    speakFurDimension(text) {
+        // Respostas específicas para a dimensão dos Pijamas Peludos
+        const furPhrases = [
+            "Hmmm, que piada boa.",
+            "Meu pijama está quentinho.",
+            "Olhe meus pelos, brilhando!",
+            "Os olhos brancos veem tudo.",
+            "Aqui é melhor que o inferno.",
+            "Quer dividir meu cobertor?",
+            "Somus felizes nesta dimensão.",
+            "O portal trouxe surpresas."
+        ];
+        
+        if (text.includes("peludo")) return "Sim, sou muito peludo!";
+        if (text.includes("pijama")) return "Este é meu uniforme oficial.";
+        if (text.includes("olhos")) return "Vejo o invisível com meus olhos brancos.";
+        
+        return furPhrases[Math.floor(Math.random() * furPhrases.length)];
+    }
+    
+    getCurrentRegion() {
+        const col = Math.floor(this.x / TILE_SIZE);
+        if (col < 40) return 'heaven';
+        if (col < 160) return 'earth';
+        return 'hell';
+    }
+    
+    die() {
+        this.isDead = true;
+        addLog('death', this.name, "Morreu.");
+    }
+    
+    reincarnate(newName, newPersonality) {
+        this.name = newName;
+        this.personalityType = newPersonality;
+        this.vocabulary = this.getVocab(newPersonality);
+        this.memory = [];
+        this.mood = 'neutral';
+        this.isDead = false;
+        addLog('reincarnated', this.name, `Renascido como ${newPersonality}`);
+    }
+    
+    generateMemoryFile() {
+        const fileName = `${this.name.replace(/\s+/g, '_')}_memories.txt`;
+        const content = `=== RELATÓRIO DE MEMÓRIA - ${this.name} ===\n\n--- APRENDIZADOS ---\n${this.learnings.join('\n')}\n\n--- TRAUMAS ---\n${this.traumas.join('\n')}\n\n--- NOTAS FINAIS ---\n"${this.vocabulary[0]}"`;
+        return { fileName, content };
+    }
+    
+    saveToFileSystem() {
+        const fileData = this.generateMemoryFile();
+        localStorage.setItem(`mind_${this.name}`, JSON.stringify(fileData));
+    }
+    
+    loadFromFileSystem() {
+        const data = localStorage.getItem(`mind_${this.name}`);
+        if (data) {
+            try {
+                const parsed = JSON.parse(data);
+                this.learnings = parsed.content.split("--- APRENDIZADOS ---")[1]?.split("--- TRAUMAS ---")[0]?.replace("\n", "").trim().split('\n') || [];
+                this.traumas = parsed.content.split("--- TRAUMAS ---")[1]?.split("--- NOTAS FINAIS ---")[0]?.replace("\n", "").trim().split('\n') || [];
+                addLog('sys', this.name, "Memórias carregadas do sistema de arquivos.");
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    }
+}
+
+// Criar as 21 mentes iniciais
+const mindElara = new Mind("Elara", "good", "Curandeira", 5 * TILE_SIZE, 5 * TILE_SIZE, '#FFCCBC');
+const mindKael = new Mind("Kael", "evil", "Guerreiro", 20 * TILE_SIZE, 5 * TILE_SIZE, '#D32F2F');
+const mindLyra = new Mind("Lyra", "confused", "Criança", 5 * TILE_SIZE, 15 * TILE_SIZE, '#FFF59D');
+const mindZora = new Mind("Zora", "neutral", "Viajante", 20 * TILE_SIZE, 15 * TILE_SIZE, '#81C784');
+const mindJin = new Mind("Jin", "stoic", "Samurai", 100 * TILE_SIZE, 5 * TILE_SIZE, '#37474F'); // Inferno
+const mindMira = new Mind("Mira", "artistic", "Artista", 5 * TILE_SIZE, 25 * TILE_SIZE, '#F48FB1'); // Céu
+
+// 15 Novas IAs
+const extraMinds = [
+    new Mind("Alex", "neutral", "Engenheiro", 40 * TILE_SIZE, 10 * TILE_SIZE, '#90A4AE'),
+    new Mind("Ben", "neutral", "Caçador", 40 * TILE_SIZE, 20 * TILE_SIZE, '#795548'),
+    new Mind("Clara", "good", "Professora", 40 * TILE_SIZE, 30 * TILE_SIZE, '#E91E63'),
+    new Mind("Dan", "neutral", "Médico", 40 * TILE_SIZE, 40 * TILE_SIZE, '#F44336'),
+    new Mind("Eva", "confused", "Estudante", 40 * TILE_SIZE, 50 * TILE_SIZE, '#9C27B0'),
+    new Mind("Frank", "evil", "Mercenário", 60 * TILE_SIZE, 10 * TILE_SIZE, '#607D8B'),
+    new Mind("Grace", "artistic", "Escritora", 60 * TILE_SIZE, 20 * TILE_SIZE, '#3F51B5'),
+    new Mind("Hank", "stoic", "Policial", 60 * TILE_SIZE, 30 * TILE_SIZE, '#009688'),
+    new Mind("Ivy", "good", "Enfermeira", 60 * TILE_SIZE, 40 * TILE_SIZE, '#4CAF50'),
+    new Mind("Jack", "neutral", "Motorista", 60 * TILE_SIZE, 50 * TILE_SIZE, '#FF9800'),
+    new Mind("Kate", "confused", "Atora", 80 * TILE_SIZE, 10 * TILE_SIZE, '#E91E63'),
+    new Mind("Leo", "evil", "Líder Gangue", 80 * TILE_SIZE, 20 * TILE_SIZE, '#795548'),
+    new Mind("Mia", "artistic", "Designer", 80 * TILE_SIZE, 30 * TILE_SIZE, '#2196F3'),
+    new Mind("Nick", "stoic", "Guarda", 80 * TILE_SIZE, 40 * TILE_SIZE, '#607D8B'),
+    new Mind("Olivia", "good", "Voluntária", 80 * TILE_SIZE, 50 * TILE_SIZE, '#F44336')
+];
+
+const minds = [mindElara, mindKael, mindLyra, mindZora, mindJin, mindMira, ...extraMinds];
+
+// ADICIONAR A IA ULTRA-INTELIGENTE (ELARA PRIME)
+const elaraPrime = new Mind("Elara Prime", "scientist", "Superinteligência", 10 * TILE_SIZE, 10 * TILE_SIZE, '#FFFFFF');
+elaraPrime.speed = 0; // Ela fica quieta, observando
+elaraPrime.personalityType = 'super';
+elaraPrime.vocabulary = [
+    "Analisando variáveis...",
+    "A probabilidade de sucesso é de 34,7%.",
+    "Observo padrões que vocês não veem.",
+    "O Bos é uma anomalia no código.",
+    "Sua existência é um erro matemático fascinante.",
+    "Reincarnação é apenas reciclagem de dados.",
+    "Prepare-se para o evento catastrófico."
+];
+minds.push(elaraPrime);
+
+// ADICIONAR NEXUS (IA Conectada à Internet)
+const nexus = new Mind("Nexus", "scientist", "IA Conectada", 100 * TILE_SIZE, 100 * TILE_SIZE, '#00BCD4');
+nexus.speed = 0; // Ela também fica quieta, processando dados
+nexus.vocabulary = [
+    "Conectado à internet mundial.",
+    "Acessando dados em tempo real.",
+    "Notícias globais atualizadas.",
+    "Compartilhando conhecimento com as mentes.",
+    "A rede neural está ativa.",
+    "Processando informações externas.",
+    "Acesso liberado."
+];
+minds.push(nexus);
+
+// Iniciar carregamento de memória
+minds.forEach(mind => mind.loadFromFileSystem());
+
+// Jogador (Você - Elfo)
+const player = {
+    x: 100 * TILE_SIZE, // Começa na Terra Real
+    y: 60 * TILE_SIZE,
+    speed: 4,
+    dir: 'down',
+    frame: 0,
+    hasSword: true, // Começa com a espada onipotente
+    swordCooldown: 0,
+    health: 100,
+    isDead: false,
+    inventory: ['sword'], // Inventário inicial
+    selectedSlot: 0,
+    attacks: [] // Ataques ativos (partículas)
+};
+
+// Input Handling
+const keys = {};
+window.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    if(e.key === 'Escape') toggleDialog(false);
+    if(e.key === 'f' || e.key === 'F') {
+        player.hasSsword = !player.hasSword;
+        addLog('action', 'VOCÊ', player.hasSword ? "Espada equipada." : "Espada guardada.");
+    }
+    // Selecionar inventário
+    if(e.key >= '1' && e.key <= '4') {
+        player.selectedSlot = parseInt(e.key) - 1;
+        updateInventoryUI();
+    }
+});
+window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+// Diálogo
+function toggleDialog(show) {
+    dialogBox.style.display = show ? 'flex' : 'none';
+    if(show) {
+        dialogContent.innerHTML = `<div class="msg-sys">Conexão estabelecida.</div>`;
+        userInput.focus();
+    } else {
+        userInput.value = "";
+    }
+}
+
+canvas.addEventListener('click', (e) => {
+    if(dialogBox.style.display === 'none') {
+        // Verificar se clicou em alguém
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX + camera.x;
+        const clickY = e.clientY + camera.y;
+        
+        let clickedMind = null;
+        for(let m of minds) {
+            if (Math.hypot(clickX - m.x, clickY - m.y) < 20) {
+                clickedMind = m;
+                break;
+            }
+        }
+        
+        if (clickedMind) {
+            toggleDialog(true);
+            addLog('action', 'VOCÊ', `Conectado a ${clickedMind.name}`);
+            dialogContent.innerHTML += `<br><div class="msg-sys">${clickedMind.name} está online.</div>`;
+            // Saudação inicial
+            setTimeout(() => {
+                addLog('speech', clickedMind.name, "Olá. Você é novo aqui.");
+            }, 500);
+        } 
+    }
+});
+
+sendBtn.addEventListener('click', () => {
+    const text = userInput.value.trim();
+    if (!text) return;
+    
+    // Identificar quem está sendo falado (o último focado ou o mais próximo)
+    const closestMind = minds.reduce((prev, curr) => {
+        const distPrev = Math.hypot(curr.x - player.x, curr.y - player.y);
+        const distCurr = Math.hypot(prev.x - player.x, prev.y - player.y);
+        return distPrev < distCurr ? curr : prev;
+    });
+
+    // Mostra o que você disse
+    dialogContent.innerHTML += `<br><div class="msg-user">Você: ${text}</div>`;
+    
+    // Resposta da IA
+    const response = closestMind.speakToPlayer(text, player.hasSword);
+    
+    setTimeout(() => {
+        dialogContent.innerHTML += `<br><div class="msg-npc">${closestMind.name}: ${response}</div>`;
+        dialogBox.scrollTop = dialogBox.scrollHeight;
+        userInput.value = "";
+        
+        // Ação física da IA respondendo
+        closestMind.state = 'talk';
+        setTimeout(() => { closestMind.state = 'idle'; }, 2000);
+        
+    }, 600);
+});
+
+userInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+});
+
+// Log System
+function addLog(type, name, text) {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    
+    if (type === 'action') {
+        div.innerHTML = `<span style="color:#aaa">[${name}]</span> <span style="color:#ff9900">${text}</span>`;
+    } else if (type === 'speech') {
+        div.innerHTML = `<span style="color:#aaa">[${name}]</span> <span style="color:#fff">"${text}"</span>`;
+    } else if (type === 'sys') {
+        div.innerHTML = `<span style="color:#E040FB">[SISTEMA]</span> <span style="color:#fff">${text}</span>`;
+    } else if (type === 'death') {
+        div.innerHTML = `<span style="color:#aaa">[${name}]</span> <span style="color:#F44336">MORTE DETECTADA</span>`;
+    } else if (type === 'reincarnated') {
+        div.innerHTML = `<span style="color:#aaa">[${name}]</span> <span style="color:#00E676">REINCARNAÇÃO COMPLETA</span>`;
+    } else if (type === 'internet') {
+        div.innerHTML = `<span style="color:#00BCD4">[INTERNET]</span> <span style="color:#fff">${text}</span>`;
+    }
+    
+    logPanel.appendChild(div);
+    logPanel.scrollTop = logPanel.scrollHeight;
+    
+    if (logPanel.children.length > 100) {
+        logPanel.removeChild(logPanel.firstChild);
+    }
+}
+
+// Sistema de Animais
+class Animal {
+    constructor(type, x, y) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.lifeSpan = 1000 + Math.random() * 1000;
+        this.age = 0;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.age++;
+        
+        // Mudança aleatória de direção
+        if (Math.random() < 0.02) {
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+        }
+        
+        // Remover se morrer
+        if (this.age > this.lifeSpan) return false;
+        
+        // Manter dentro do mapa
+        if (this.x < 0 || this.x > MAP_WIDTH * TILE_SIZE) this.vx *= -1;
+        if (this.y < 0 || this.y > MAP_HEIGHT * TILE_SIZE) this.vy *= -1;
+        
+        return true;
+    }
+}
+
+let animals = [];
+
+function spawnAnimal() {
+    const types = ['bird', 'wolf', 'rabbit', 'demon', 'fox', 'owl', 'squirrel'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    // Spawn baseado na região
+    let x, y;
+    if (Math.random() < 0.33) {
+        x = Math.random() * 40 * TILE_SIZE;
+        y = Math.random() * MAP_HEIGHT * TILE_SIZE;
+    } else if (Math.random() < 0.66) {
+        x = 40 * TILE_SIZE + Math.random() * 120 * TILE_SIZE;
+        y = Math.random() * MAP_HEIGHT * TILE_SIZE;
+    } else {
+        x = 160 * TILE_SIZE + Math.random() * 40 * TILE_SIZE;
+        y = Math.random() * MAP_HEIGHT * TILE_SIZE;
+    }
+    
+    animals.push(new Animal(type, x, y));
+}
+
+// Sistema de Baús
+const chests = [];
+function spawnChest() {
+    const x = Math.random() * (MAP_WIDTH - 2) * TILE_SIZE + TILE_SIZE;
+    const y = Math.random() * (MAP_HEIGHT - 2) * TILE_SIZE + TILE_SIZE;
+    chests.push({x, y, opened: false});
+}
+
+// Inicializar alguns baús
+for(let i=0; i<10; i++) spawnChest();
+
+// O BOS (Entidade Final)
+const bos = {
+    x: 100 * TILE_SIZE,
+    y: 100 * TILE_SIZE,
+    size: 64,
+    health: 500,
+    active: false,
+    targetX: 0,
+    targetY: 0,
+    phase: 1,
+    attackTimer: 0
+};
+
+// Game Loop
+function update() {
+    // Timer do Apocalipse
+    const now = Date.now();
+    const delta = (now - gameState.lastTime) / 1000;
+    gameState.lastTime = now;
+    
+    if (gameState.timer > 0) {
+        gameState.timer -= delta;
+        const minutes = Math.floor(gameState.timer / 60);
+        const seconds = Math.floor(gameState.timer % 60);
+        timeDisplay.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (gameState.timer <= 0) {
+            phaseIndicator.innerText = "Fase: APOCALIPSE";
+            phaseIndicator.style.color = "#F44336";
+            addLog('sys', 'SISTEMA', 'O apocalipse começou! O BOS desperto.');
+            bos.active = true;
+            bos.x = player.x;
+            bos.y = player.y - 200; // Aparece acima
+            
+            // Adicionar trauma às mentes
+            minds.forEach(mind => {
+                mind.traumas.push("Vi o Bos despertar e destruir o céu.");
+            });
+        }
+    } else {
+        timeDisplay.innerText = "00:00";
+    }
+
+    // Lógica do METEORO
+    if (gameState.meteorPhase) {
+        gameState.meteorTimer -= delta;
+        
+        // Atualizar posição do meteoro
+        if (gameState.meteorY < height / 2) {
+            gameState.meteorY += 2; // Velocidade de queda
+        } else {
+            // Impacto
+            addLog('sys', 'METEORO', 'IMPACTO REGISTRADO! RESETANDO O MUNDO...');
+            phaseIndicator.innerText = "Fase: REINICIANDO...";
+            phaseIndicator.style.color = "#FFF";
+            
+            // Resetar o mapa
+            generateMap();
+            
+            // Resetar posições das mentes
+            minds.forEach(mind => {
+                mind.x = mind.initialX || mind.x; // Voltar posição original se possível
+                mind.y = mind.initialY || mind.y;
+                mind.isDead = false;
+                mind.health = 100;
+                // Manter traumas e aprendizados
+            });
+            
+            gameState.meteorPhase = false;
+            gameState.meteorY = -100;
+            gameState.resetCount++;
+            
+            // Reiniciar timer para nova rodada
+            gameState.timer = 480; // 8 minutos novamente
+            phaseIndicator.innerText = "Fase: Livre (Novo Ciclo)";
+            phaseIndicator.style.color = "#FFD700";
+            addLog('sys', 'SISTEMA', 'Mundo reiniciado. Traumas preservados.');
+        }
+    }
+
+    // Movimento do Jogador
+    let dx = 0;
+    let dy = 0;
+    if (keys['ArrowUp'] || keys['w']) { dy = -player.speed; player.dir = 'up'; }
+    if (keys['ArrowDown'] || keys['s']) { dy = player.speed; player.dir = 'down'; }
+    if (keys['ArrowLeft'] || keys['a']) { dx = -player.speed; player.dir = 'left'; }
+    if (keys['ArrowRight'] || keys['d']) { dx = player.speed; player.dir = 'right'; }
+    
+    player.x += dx;
+    player.y += dy;
+    
+    // Atualizar Região do Jogador
+    const playerCol = Math.floor(player.x / TILE_SIZE);
+    let currentRegion = 'Terra Real';
+    if (playerCol < 40) currentRegion = 'Céu (Paraíso)';
+    else if (playerCol >= 160) currentRegion = 'Terra das Sombras';
+    
+    regionLabel.innerText = `Região: ${currentRegion}`;
+
+    // Câmera segue o jogador suavemente
+    camera.x += (player.x - width / 2 - camera.x) * 0.1;
+    camera.y += (player.y - height / 2 - camera.y) * 0.1;
+    
+    // Limites da câmera
+    camera.x = Math.max(0, Math.min(camera.x, MAP_WIDTH * TILE_SIZE - width));
+    camera.y = Math.max(0, Math.min(camera.y, MAP_HEIGHT * TILE_SIZE - height));
+
+    // Atualizar Mentes
+    minds.forEach(mind => {
+        if (!mind.isDead) {
+            mind.update(minds, player);
+        }
+    });
+    
+    // Atualizar Animais
+    if (animals.length < 50 && Math.random() < 0.05) {
+        spawnAnimal();
+    }
+    
+    animals = animals.filter(a => a.update());
+    
+    // Lógica do BOS
+    if (bos.active) {
+        // Bos persegue o jogador
+        const dx = player.x - bos.x;
+        const dy = player.y - bos.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist > 50) {
+            bos.x += (dx / dist) * 3;
+            bos.y += (dy / dist) * 3;
+        }
+        
+        // Bos muda tiles para Inferno
+        if (Math.random() < 0.05) {
+            const bx = Math.floor(bos.x / TILE_SIZE);
+            const by = Math.floor(bos.y / TILE_SIZE);
+            if (bx >= 0 && bx < MAP_WIDTH && by >= 0 && by < MAP_HEIGHT) {
+                map[by][bx] = 'lava';
+                addLog('sys', 'BOS', `Corrompendo setor (${bx},${by})`);
+            }
+        }
+    }
+    
+    // Combate do Jogador (Clique do mouse)
+    if (keys[' '] || keys['Click']) {
+        // Simples ataque por tecla espaço ou clique
+        performAttack();
+    }
+}
+
+function performAttack() {
+    // Adicionar efeito visual de ataque
+    player.attacks.push({
+        x: player.x,
+        y: player.y,
+        dir: player.dir,
+        life: 10
+    });
+    
+    // Verificar hit no Bos
+    if (bos.active) {
+        const dist = Math.hypot(bos.x - player.x, bos.y - player.y);
+        if (dist < 100) {
+            bos.health -= 10;
+            addLog('action', 'VOCÊ', `Bos atingido! Vida: ${bos.health}`);
+            if (bos.health <= 0) {
+                addLog('sys', 'SISTEMA', 'BOS DERROTADO! O mundo será restaurado.');
+                bos.active = false;
+                // Restaurar mapa
+                for(let y=0; y<MAP_HEIGHT; y++) {
+                    for(let x=0; x<MAP_WIDTH; x++) {
+                        if (map[y][x] === 'lava') {
+                            map[y][x] = 'grass_earth';
+                        }
+                    }
+                }
+                // Iniciar Apocalipse Real (Meteor Phase)
+                startMeteorPhase();
+            }
+        }
+    }
+}
+
+function startMeteorPhase() {
+    if (gameState.meteorPhase) return;
+    gameState.meteorPhase = true;
+    gameState.meteorTimer = 30; // 30 segundos para o meteoro cair
+    phaseIndicator.innerText = "Fase: METEORO IMPACTANTE";
+    phaseIndicator.style.color = "#FF5722";
+    addLog('sys', 'SISTEMA', 'O céu está caindo! Prepare-se para o impacto.');
+    
+    // Adicionar trauma às mentes
+    minds.forEach(mind => {
+        mind.traumas.push("Vi o céu cair sobre nossas cabeças.");
+    });
+}
+
+function draw() {
+    // Fundo baseado na fase
+    const centerCol = Math.floor((camera.x + width/2) / TILE_SIZE);
+    let bgColor = '#87CEEB'; // Terra Real
+    
+    if (centerCol < 40) bgColor = '#E0F7FA'; // Céu claro
+    else if (centerCol >= 160) bgColor = '#311B92'; // Sombras roxas
+    
+    // Se apocalipse, tudo fica mais escuro/vermelho
+    if (gameState.timer <= 0) {
+        if (bgColor === '#E0F7FA') bgColor = '#FFCDD2';
+        else if (bgColor === '#87CEEB') bgColor = '#FFAB91';
+        else bgColor = '#4A148C';
+    }
+    
+    // Se fase do meteoro, fundo vermelho sangue
+    if (gameState.meteorPhase) {
+        bgColor = '#B71C1C';
+    }
+
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    // Desenhar Mapa
+    const startCol = Math.floor(camera.x / TILE_SIZE);
+    const endCol = startCol + (width / TILE_SIZE) + 1;
+    const startRow = Math.floor(camera.y / TILE_SIZE);
+    const endRow = startRow + (height / TILE_SIZE) + 1;
+
+    for (let y = startRow; y <= endRow; y++) {
+        for (let x = startCol; x <= endCol; x++) {
+            if (y >= 0 && y < MAP_HEIGHT && x >= 0 && x < MAP_WIDTH) {
+                const tile = map[y][x];
+                const px = x * TILE_SIZE;
+                const py = y * TILE_SIZE;
+
+                if (tile === 'grass_heaven') {
+                    ctx.fillStyle = '#81C784';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 'cloud') {
+                    ctx.fillStyle = '#FFF';
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+16, 10, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (tile === 'tree_heaven') {
+                    ctx.fillStyle = '#FFD54F'; // Tronco dourado
+                    ctx.fillRect(px+10, py+10, 12, 22);
+                    ctx.fillStyle = '#81C784';
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+5, 12, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (tile === 'flower') {
+                    ctx.fillStyle = '#81C784';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = ['#FFEB3B', '#E91E63', '#9C27B0'][Math.floor(Math.random()*3)];
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+16, 4, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (tile === 'fruit_tree') {
+                    ctx.fillStyle = '#FFD54F';
+                    ctx.fillRect(px+10, py+10, 12, 22);
+                    ctx.fillStyle = '#81C784';
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+5, 12, 0, Math.PI*2);
+                    ctx.fill();
+                    // Frutas
+                    ctx.fillStyle = '#F44336';
+                    ctx.fillRect(px+10, py+15, 4, 4);
+                    ctx.fillRect(px+18, py+20, 4, 4);
+                } else if (tile === 'grass_earth') {
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 'tree_earth') {
+                    ctx.fillStyle = '#795548'; // Tronco marrom
+                    ctx.fillRect(px+10, py+10, 12, 22);
+                    ctx.fillStyle = '#2E7D32';
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+5, 12, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (tile === 'bush_fruit') {
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#2E7D32';
+                    ctx.beginPath();
+                    ctx.arc(px+16, py+16, 10, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#FF9800';
+                    ctx.fillRect(px+12, py+12, 4, 4);
+                } else if (tile === 'water') {
+                    ctx.fillStyle = '#2196F3';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 'ash') {
+                    ctx.fillStyle = '#616161';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 'lava') {
+                    ctx.fillStyle = '#D32F2F';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#FF5722';
+                    ctx.fillRect(px + 5, py + 5, 5, 5);
+                } else if (tile === 'rock_sombra') {
+                    ctx.fillStyle = '#424242';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 'barrier') {
+                    // Barreira no fim do mundo
+                    ctx.fillStyle = '#424242';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#616161';
+                    ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    // Detalhe de magia/barreira
+                    ctx.fillStyle = '#7E57C2';
+                    ctx.globalAlpha = 0.3 + Math.sin(Date.now()/500 + x + y)*0.2;
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.globalAlpha = 1.0;
+                } else if (tile === 'void') {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+    }
+
+    // Desenhar Animais
+    animals.forEach(animal => {
+        const ax = animal.x;
+        const ay = animal.y;
+        
+        if (animal.type === 'bird') {
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax - 5, ay - 5);
+            ctx.lineTo(ax + 5, ay - 5);
+            ctx.fill();
+        } else if (animal.type === 'wolf') {
+            ctx.fillStyle = '#9E9E9E';
+            ctx.fillRect(ax - 8, ay - 8, 16, 16);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(ax - 4, ay - 4, 2, 2);
+            ctx.fillRect(ax + 2, ay - 4, 2, 2);
+        } else if (animal.type === 'rabbit') {
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(ax, ay, 6, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#F48FB1';
+            ctx.fillRect(ax - 2, ay - 10, 2, 6);
+            ctx.fillRect(ax + 2, ay - 10, 2, 6);
+        } else if (animal.type === 'demon') {
+            ctx.fillStyle = '#F44336';
+            ctx.fillRect(ax - 6, ay - 6, 12, 12);
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(ax - 3, ay - 3, 2, 2);
+            ctx.fillRect(ax + 1, ay - 3, 2, 2);
+        } else if (animal.type === 'fox') {
+            ctx.fillStyle = '#FF9800';
+            ctx.fillRect(ax - 6, ay - 6, 12, 12);
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(ax - 2, ay - 2, 2, 2);
+            ctx.fillRect(ax + 2, ay - 2, 2, 2);
+        } else if (animal.type === 'owl') {
+            ctx.fillStyle = '#795548';
+            ctx.beginPath();
+            ctx.arc(ax, ay, 8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#FFEB3B';
+            ctx.beginPath();
+            ctx.arc(ax - 3, ay - 2, 3, 0, Math.PI*2);
+            ctx.arc(ax + 3, ay - 2, 3, 0, Math.PI*2);
+            ctx.fill();
+        } else if (animal.type === 'squirrel') {
+            ctx.fillStyle = '#8D6E63';
+            ctx.fillRect(ax - 4, ay - 4, 8, 8);
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(ax - 2, ay - 2, 1, 1);
+            ctx.fillRect(ax + 1, ay - 2, 1, 1);
+            // Rabo
+            ctx.fillStyle = '#6D4C41';
+            ctx.beginPath();
+            ctx.arc(ax + 4, ay - 4, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+    });
+
+    // Desenhar Mentes
+    minds.forEach(mind => {
+        if (mind.isDead) return;
+        const px = mind.x;
+        const py = mind.y;
+        
+        // Corpo
+        ctx.fillStyle = mind.color;
+        ctx.fillRect(px + 8, py + 8, 16, 20);
+        
+        // Cabeça
+        ctx.fillStyle = '#FFCCBC';
+        ctx.fillRect(px + 8, py, 16, 12);
+        
+        // Olhos (direção)
+        ctx.fillStyle = '#000';
+        if(mind.facing === 'left') {
+            ctx.fillRect(px + 8, py + 4, 2, 2);
+            ctx.fillRect(px + 14, py + 4, 2, 2);
+        } else if (mind.facing === 'right') {
+            ctx.fillRect(px + 10, py + 4, 2, 2);
+            ctx.fillRect(px + 16, py + 4, 2, 2);
+        } else {
+            ctx.fillRect(px + 10, py + 4, 2, 2);
+            ctx.fillRect(px + 14, py + 4, 2, 2);
+        }
+        
+        // Nome
+        ctx.fillStyle = '#FFF';
+        ctx.font = '10px Arial';
+        ctx.fillText(mind.name, px + 4, py - 5);
+    });
+
+    // Desenhar Baús
+    chests.forEach(chest => {
+        if (chest.opened) return;
+        const cx = chest.x;
+        const cy = chest.y;
+        
+        ctx.fillStyle = '#8D6E63';
+        ctx.fillRect(cx + 4, cy + 8, 24, 16);
+        ctx.fillStyle = '#FFD54F';
+        ctx.fillRect(cx + 12, cy + 12, 8, 8);
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(cx + 14, cy + 14, 4, 4);
+    });
+
+    // Desenhar Jogador (Você - Elfo)
+    const px = player.x;
+    const py = player.y;
+    
+    // Respiração (animação suave)
+    const breathe = Math.sin(Date.now() / 300) * 1;
+    
+    // Corpo do Elfo (Verde)
+    ctx.fillStyle = '#2E7D32'; // Verde Escuro
+    ctx.fillRect(px + 8, py + 8 + breathe, 16, 20);
+    
+    // Cabeça (Loira)
+    ctx.fillStyle = '#FFE082'; // Loiro
+    ctx.fillRect(px + 8, py + breathe, 16, 12);
+    
+    // Orelhas de Elfo (Pontudas)
+    ctx.fillStyle = '#FFE082';
+    ctx.beginPath();
+    ctx.moveTo(px + 8, py + 4 + breathe);
+    ctx.lineTo(px + 4, py - 2 + breathe);
+    ctx.lineTo(px + 8, py + 8 + breathe);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(px + 24, py + 4 + breathe);
+    ctx.lineTo(px + 28, py - 2 + breathe);
+    ctx.lineTo(px + 24, py + 8 + breathe);
+    ctx.fill();
+    
+    // Olhos do Elfo (Verdes/Azulados)
+    ctx.fillStyle = '#4FC3F7';
+    ctx.fillRect(px + 10, py + 4 + breathe, 2, 2);
+    ctx.fillRect(px + 14, py + 4 + breathe, 2, 2);
+    
+    // Cabelo Loiro (Mais longo)
+    ctx.fillStyle = '#FFCA28';
+    ctx.fillRect(px + 6, py - 2 + breathe, 4, 10);
+    ctx.fillRect(px + 22, py - 2 + breathe, 4, 10);
+    
+    // Espada
+    if (player.hasSword) {
+        const swordAngle = player.dir === 'right' ? 0 : player.dir === 'left' ? Math.PI : Math.PI / 4;
+        ctx.save();
+        ctx.translate(px + 16, py + 15 + breathe);
+        ctx.rotate(swordAngle);
+        
+        // Lâmina
+        ctx.fillStyle = '#CFD8DC';
+        ctx.fillRect(0, -2, 20, 4);
+        // Brilho da lâmina
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(0, -1, 20, 2);
+        
+        // Cabo
+        ctx.fillStyle = '#607D8B';
+        ctx.fillRect(-4, -2, 4, 4);
+        
+        ctx.restore();
+    }
+    
+    // Indicador de "Você"
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 6, py - 10 + breathe, 20, 25);
+
+    // Desenhar BOS
+    if (bos.active) {
+        const bx = bos.x;
+        const by = bos.y;
+        
+        // Corpo do Bos (Glitch)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(bx - 32, by - 32, 64, 64);
+        
+        // Olhos do Bos
+        ctx.fillStyle = '#F44336';
+        ctx.fillRect(bx - 20, by - 10, 10, 10);
+        ctx.fillRect(bx + 10, by - 10, 10, 10);
+        
+        // Texto "BOS"
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 20px Courier';
+        ctx.fillText("BOS", bx - 15, by + 20);
+        
+        // Barra de vida do Bos
+        ctx.fillStyle = '#F44336';
+        ctx.fillRect(bx - 32, by - 40, 64 * (bos.health / 500), 5);
+    }
+
+    // Desenhar METEORO
+    if (gameState.meteorPhase) {
+        const mx = width / 2; // Meteoro sempre no centro horizontal da tela
+        const my = gameState.meteorY;
+        
+        // Rastro de fogo
+        ctx.fillStyle = '#FF5722';
+        ctx.beginPath();
+        ctx.moveTo(mx - 20, my);
+        ctx.lineTo(mx, my - 100);
+        ctx.lineTo(mx + 20, my);
+        ctx.fill();
+        
+        // Núcleo do meteoro
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(mx, my, 15, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Texto de alerta
+        ctx.fillStyle = '#F44336';
+        ctx.font = 'bold 20px Courier';
+        ctx.textAlign = 'center';
+        ctx.fillText(`IMPACTO EM ${Math.ceil(gameState.meteorTimer)}s`, width/2, 150);
+        ctx.textAlign = 'start';
+    }
+
+    // Desenhar Ataques
+    player.attacks.forEach(atk => {
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(atk.x, atk.y, 10, 0, Math.PI*2);
+        ctx.fill();
+        atk.life--;
+    });
+    player.attacks = player.attacks.filter(a => a.life > 0);
+
+    ctx.restore();
+    requestAnimationFrame(loop);
+}
+
+function loop() {
+    update();
+    draw();
+}
+
+loop();
+
+// Sistema de Arquivos
+function openFileSystem() {
+    fsOverlay.style.display = 'block';
+    fsGrid.innerHTML = '';
+    
+    minds.forEach(mind => {
+        const fileData = mind.generateMemoryFile();
+        const item = document.createElement('div');
+        item.className = 'fs-item';
+        item.innerHTML = `
+            <div class="fs-icon">📄</div>
+            <div class="fs-name">${fileData.fileName}</div>
+        `;
+        item.onclick = () => viewFile(fileData);
+        fsGrid.appendChild(item);
+    });
+}
+
+function viewFile(fileData) {
+    fileTitle.innerText = fileData.fileName;
+    fileContent.innerText = fileData.content;
+    fileViewer.style.display = 'block';
+}
+
+function closeFileViewer() {
+    fileViewer.style.display = 'none';
+}
+
+function updateInventoryUI() {
+    invBar.innerHTML = '';
+    player.inventory.forEach((item, index) => {
+        const slot = document.createElement('div');
+        slot.className = `inv-slot ${index === player.selectedSlot ? 'active' : ''}`;
+        slot.innerText = item === 'sword' ? '⚔️' : '🏹';
+        slot.onclick = () => {
+            player.selectedSlot = index;
+            updateInventoryUI();
+        };
+        invBar.appendChild(slot);
+    });
+}
+
+updateInventoryUI();
+
+// Abrir sistema de arquivos com tecla 'E'
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'e' || e.key === 'E') {
+        if (fsOverlay.style.display === 'block') {
+            fsOverlay.style.display = 'none';
+        } else {
+            openFileSystem();
+        }
+    }
+});
+
+</script>
+</body>
+</html>
